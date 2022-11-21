@@ -95,9 +95,7 @@ fn main() {
 
                     let cursor = std::mem::size_of::<DpowNanoMsgHdr>() - 1;
                     let dpow_msg: DpowNanoMsgHdr = binconf.deserialize(&buffer[..cursor]).unwrap();
-                    if Ipv4Addr::from(u32::from_be_bytes(dpow_msg.myipbits)) == Ipv4Addr::new(104, 238, 221, 61) {
-                        println!("senderind: {}", dpow_msg.senderind);
-                    }
+                    println!("senderind: {} {}", dpow_msg.senderind, Ipv4Addr::from(u32::from_be_bytes(dpow_msg.myipbits)));
                     let txidtx = match header.packetlen {
                         cursor=> {
                             None
@@ -110,7 +108,6 @@ fn main() {
                         },
                     };
                     buffer = buffer[header.packetlen as usize..].to_vec();
-                    println!("packetsig {} {}", header.sigr.to_hex::<String>(), header.sigs.to_hex::<String>());
                 }
 
             }
