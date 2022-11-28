@@ -8,6 +8,8 @@ use serialization::deserialize;
 use std::net::Ipv4Addr;
 use bincode::Options;
 use rustc_hex::{FromHex, ToHex};
+use serde_json::json;
+
 
 const SERVER_DEVICE_URL: &'static str = "tcp://195.201.20.230:13344";
 
@@ -77,7 +79,7 @@ struct DpowNanoMsgHdr {
 
 //https://stackoverflow.com/questions/68583968/how-to-deserialize-a-c-struct-into-a-rust-struct
 fn main() {
-
+    let mut ips = json!({});
     let binconf = bincode::DefaultOptions::new().with_fixint_encoding();//.allow_trailing_bytes();
 
     let mut in_socket = Socket::new(Protocol::Bus).unwrap();
@@ -95,7 +97,9 @@ fn main() {
 
                     let cursor = std::mem::size_of::<DpowNanoMsgHdr>() - 1;
                     let dpow_msg: DpowNanoMsgHdr = binconf.deserialize(&buffer[..cursor]).unwrap();
-                    println!("senderind: {} {}", dpow_msg.senderind, Ipv4Addr::from(u32::from_be_bytes(dpow_msg.myipbits)));
+                    ips[format!("{}", dpow_msg.senderind)] = format!("{}", Ipv4Addr::from(u32::from_be_bytes(dpow_msg.myipbits))).into();
+                    println!("{}",ips);
+
                     let txidtx = match header.packetlen {
                         cursor=> {
                             None
