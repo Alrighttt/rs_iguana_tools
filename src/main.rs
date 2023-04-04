@@ -12,6 +12,7 @@ use serde_json::json;
 
 
 const SERVER_DEVICE_URL: &'static str = "tcp://195.201.20.230:13344";
+const FIRST_PARTY: [&str; 63] = ["blackice_DEV","blackice_AR","alien_EU","alien_NA","alien_SH","alienx_EU","alienx_NA","artem.pikulin_AR","artem.pikulin_DEV","blackice_EU","chmex_AR","chmex_EU","chmex_NA","chmex_SH","chmex1_SH","cipi_1_EU","cipi_2_EU","cipi_AR","cipi_NA","computergenie_EU","computergenie_NA","dimxy_AR","dimxy_DEV","dragonhound_NA","fediakash_AR","gcharang_DEV","gcharang_SH","goldenman_AR","kolo_EU","kolox_AR","komodopioneers_EU","madmax_DEV","marmarachain_EU","mcrypt_AR","mcrypt_SH","metaphilibert_SH","mylo_NA","mylo_SH","nodeone_NA","nutellalicka_AR","nutellalicka_SH","ocean_AR","pbca26_NA","pbca26_SH","phit_SH","ptyx_NA","ptyx2_NA","sheeba_SH","smdmitry_AR","smdmitry_EU","smdmitry_SH","strob_SH","strobnidan_SH","tokel_NA","tonyl_AR","tonyl_DEV","van_EU","webworker01_EU","webworker01_NA","who-biz_NA","yurii-khi_DEV","ca333_EU","dragonhound_DEV"];
 
 /*
 const CLIENT_DEVICE_URL: &'static str = "tcp://95.217.87.135:13344";
@@ -97,7 +98,7 @@ fn main() {
 
                     let cursor = std::mem::size_of::<DpowNanoMsgHdr>() - 1;
                     let dpow_msg: DpowNanoMsgHdr = binconf.deserialize(&buffer[..cursor]).unwrap();
-                    ips[format!("{}", dpow_msg.senderind)] = format!("{}", Ipv4Addr::from(u32::from_be_bytes(dpow_msg.myipbits))).into();
+                    ips[format!("{}", FIRST_PARTY[dpow_msg.senderind as usize - 1])] = format!("{}", Ipv4Addr::from(u32::from_be_bytes(dpow_msg.myipbits))).into();
                     println!("{}",ips);
 
                     let txidtx = match header.packetlen {
