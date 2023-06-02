@@ -212,11 +212,10 @@ fn main() {
                         }
                     };
                     buffer = buffer[header.packetlen as usize..].to_vec();
-                    */
-
+                    
                 println!("full header");
                 print_hex(&buffer);
-
+*/
                 let _header: IguanaPacketHeader = binconf.deserialize(&buffer[..104]).unwrap();
                 buffer = buffer[104..].to_vec();
                 let msg_size = std::mem::size_of::<DpowNanoMsgHdr>()-1;
@@ -224,11 +223,12 @@ fn main() {
 
                 buffer = buffer[msg_size..].to_vec();
 
-                println!("{} {}", FIRST_PARTY[dpow_msg.senderind as usize - 1], Ipv4Addr::from(u32::from_be_bytes(dpow_msg.myipbits)));
+                println!("{} {}", FIRST_PARTY[dpow_msg.senderind as usize], Ipv4Addr::from(u32::from_be_bytes(dpow_msg.myipbits)));
 
 
                 let extra = &buffer[..dpow_msg.datalen as usize];
 
+/*
                 match dpow_msg.channel {
                     DPOW_SIGCHANNEL => println!("DpowSigchannel"),
                     DPOW_SIGBTCCHANNEL => println!("DpowSigbtcchannel"),
@@ -241,7 +241,7 @@ fn main() {
                     println!("dpow_msg channel {}", dpow_msg.channel);
                     print_hex(&extra);
                 }
-
+*/
                 buffer = buffer[dpow_msg.datalen as usize..].to_vec();
 
                 
