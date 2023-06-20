@@ -15,3 +15,6 @@ serde-big-array = "0.4.1"
 serde_json = "1.0"
 chain = { git = "https://github.com/alrighttt/atomicDEX-API",  branch = "kp-dev"}
 serialization = { git = "https://github.com/alrighttt/atomicDEX-API",  branch = "kp-dev"}
+rusqlite = "0.29.0"
+sha2 = "0.10.7"
+byteorder = "1.4.3"
