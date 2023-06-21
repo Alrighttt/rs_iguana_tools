@@ -1,7 +1,14 @@
 [package]
-name = "rust_emptybin"
+name = "iguana_rs"
 version = "0.1.0"
 edition = "2021"
+
+[[bin]]
+name = "iguana_rs_listener"
+path = "src/main.rs"
+
+[lib]
+path = "src/lib.rs"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
@@ -18,3 +25,4 @@ serialization = { git = "https://github.com/alrighttt/atomicDEX-API",  branch = 
 rusqlite = "0.29.0"
 sha2 = "0.10.7"
 byteorder = "1.4.3"
+secp256k1 = { version = "0.27.0", features = ["recovery", "rand-std"] }
