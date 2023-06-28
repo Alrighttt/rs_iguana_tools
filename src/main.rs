@@ -1,7 +1,5 @@
 use bincode::Options;
-use chain::Transaction;
 use nanomsg::{Protocol, Socket};
-use serialization::deserialize;
 
 use std::env;
 use std::io::Read;
@@ -11,10 +9,7 @@ use iguana_rs::{
 };
 
 // TODO: cleanup all db OPs into other file
-use iguana_rs::db::{
-    init_db, update_ip_logs, update_known_ips,
-    update_lastseen,
-};
+use iguana_rs::db::{init_db, update_ip_logs, update_known_ips, update_lastseen};
 use rusqlite::Connection;
 
 fn print_hex(bytes: &[u8]) {
@@ -23,20 +18,49 @@ fn print_hex(bytes: &[u8]) {
     }
     println!("");
 }
+use std::net::Ipv4Addr;
+
+fn reverse_bits(byte: u8) -> u8 {
+    let mut v = byte;
+    let mut r = v;
+    let mut s = 7;
+    v >>= 1;
+    while v != 0 {
+        r <<= 1;
+        r |= v & 1;
+        v >>= 1;
+        s -= 1;
+    }
+    r <<= s;
+    r
+}
 
 fn main() {
-    let conn = Connection::open("./stats.db").unwrap();
-    init_db(&conn);
-
     let args: Vec<String> = env::args().collect();
-    let server_url = &args[1];
+
+    let server_ip = &args[1];
+    let server_port = &args[2];
+    let server_url = format!("tcp://{}:{}", server_ip, server_port);
+
+    let bootstrap_peer = &args[3];
+    let peer_string = format!("tcp://{}:{}", bootstrap_peer, server_port);
+
+    let conn = Connection::open(&args[4]).unwrap();
+    init_db(&conn);
 
     let binconf = bincode::DefaultOptions::new().with_fixint_encoding();
 
     let mut in_socket = Socket::new(Protocol::Bus).expect("cannot create socket");
-    let _in_endpoint = in_socket.bind(server_url).expect("cannot bind to socket");
+    let _in_endpoint = in_socket.bind(&server_url).expect("cannot bind to socket");
+
+    let _out_endpoint = match in_socket.connect(&peer_string) {
+        Ok(ep) => ep,
+        Err(err) => panic!("Failed to connect socket: {}", err),
+    };
 
     let mut buffer = vec![];
+    let mut connect_once = true;
+    //let mut out_sockets : Vec<Socket> = Vec::new();
     loop {
         match in_socket.read_to_end(&mut buffer) {
             Ok(_mysize) => {
@@ -61,41 +85,52 @@ fn main() {
                     update_ip_logs(&conn, dpow_msg.senderind, dpow_msg.myipbits);
                     update_known_ips(&conn, dpow_msg.senderind, dpow_msg.ipbits.to_vec());
 
-                    let extra = &buffer[..dpow_msg.datalen as usize];
+                    if connect_once {
+                        for ip in dpow_msg.ipbits.iter() {
+                            let ip_str = Ipv4Addr::from(u32::from_be_bytes(*ip)).to_string();
+                            println!("ip_str {}", ip_str);
+                            if ip != &[0; 4] && server_ip != &ip_str {
+                                let dial = format!("tcp://{}:{}", ip_str, server_port);
+                                println!("dial {}", dial);
+                                // TODO we want thread per connection to be able to send/receive selectively
+                                //let mut out_socket = Socket::new(Protocol::Bus).expect("cannot create socket");
+                                let _out_endpoint = match in_socket.connect(&dial) {
+                                    Ok(_) => {
+                                        println!("connect to {}", dial);
+                                        //out_sockets.push(out_socket);
+                                    }
+                                    Err(_) => println!("failed connect to {}", dial),
+                                };
+                            }
+                        }
+                        connect_once = false;
+                    }
+
+                    let _extra = &buffer[..dpow_msg.datalen as usize];
 
                     println!(
-                        "{} {:?}",
-                        FIRST_PARTY[dpow_msg.senderind as usize], dpow_msg.myipbits
+                        "{} {:?} {} {} channel:{:?} bestk:{}",
+                        FIRST_PARTY[dpow_msg.senderind as usize],
+                        dpow_msg.myipbits,
+                        std::str::from_utf8(&dpow_msg.symbol).unwrap(),
+                        dpow_msg.height,
+                        dpow_msg.channel,
+                        dpow_msg.notarize.bestk,
                     );
-                    println!("dpow_msg: {:?}", dpow_msg);
-
-                    match dpow_msg.channel {
-                        iguana_rs::DPOW_SIGCHANNEL | iguana_rs::DPOW_SIGBTCCHANNEL => {
-                            // this seems to be an entirely deprecated and unused data structure
-                            // that is transmitted after a notarization tx is broadcast
-                            // see dpow_rwsigentry() in dpow_network.c
-                            ()
-                        }
-                        iguana_rs::DPOW_TXIDCHANNEL => {
-                            println!("DPOW_TXIDCHANNEL extra:");
-                            print_hex(&extra);
-                            let txid = &extra[..32];
-                            let tx: Transaction = deserialize(&extra[32..]).unwrap();
-                            println!("tx: {:?}", tx);
-                            print_hex(&txid);
-                            println!("^txid");
-                        }
-                        iguana_rs::DPOW_BTCTXIDCHANNEL => {
-                            println!("DPOW_BTCTXIDCHANNEL extra:");
-                            print_hex(&extra);
-                            let txid = &extra[..32];
-                            let tx: Transaction = deserialize(&extra[32..]).unwrap();
-                            println!("tx: {:?}", tx);
-                            print_hex(&txid);
-                            println!("^txid");
-                        }
-                        _ => (), //println!("Null channel"),
+                    print!("bestmask:");
+                    for byte in &dpow_msg.notarize.bestmask {
+                        print!("{:08b}", reverse_bits(*byte));
                     }
+                    println!();
+                    print!("recvmask:");
+                    for byte in &dpow_msg.notarize.recvmask {
+                        print!("{:08b}", reverse_bits(*byte));
+                    }
+                    println!();
+                    print!("srchash:");
+                    print_hex(&dpow_msg.srchash);
+                    print!("desthash:");
+                    print_hex(&dpow_msg.desthash);
 
                     buffer = buffer[dpow_msg.datalen as usize..].to_vec();
                 }
