@@ -35,6 +35,7 @@ fn reverse_bits(byte: u8) -> u8 {
     r
 }
 
+// usage ./iguana_rs_listener <external IP to bind to> <port to bind to> <initial peer to connect to> <db filename>
 fn main() {
     let args: Vec<String> = env::args().collect();
 
@@ -89,7 +90,7 @@ fn main() {
                         for ip in dpow_msg.ipbits.iter() {
                             let ip_str = Ipv4Addr::from(u32::from_be_bytes(*ip)).to_string();
                             println!("ip_str {}", ip_str);
-                            if ip != &[0; 4] && server_ip != &ip_str {
+                            if ip != &[0; 4] && server_ip != &ip_str && bootstrap_peer != &ip_str {
                                 let dial = format!("tcp://{}:{}", ip_str, server_port);
                                 println!("dial {}", dial);
                                 // TODO we want thread per connection to be able to send/receive selectively
