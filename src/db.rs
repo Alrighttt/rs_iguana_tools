@@ -115,8 +115,9 @@ pub fn update_ip_logs(conn: &Connection, notary_id: u8, ipbits: [u8; 4]) {
     }
 }
 
-pub fn update_known_ips(conn: &Connection, notary_id: u8, ips: Vec<[u8; 4]>) {
+pub fn update_known_ips(conn: &Connection, notary_id: u8, ips: Vec<[u8; 4]>) -> Vec<String> {
     let current_timestamp = now_sec();
+    let mut new_ips = vec!();
 
     for ip in ips {
         if ip == [0; 4] {
@@ -125,11 +126,16 @@ pub fn update_known_ips(conn: &Connection, notary_id: u8, ips: Vec<[u8; 4]>) {
         let ip_str = Ipv4Addr::from(u32::from_be_bytes(ip)).to_string();
 
         // Insert the IP address into the ips table if it doesn't exist already
-        conn.execute(
+        let rows_affected = conn.execute(
             "INSERT OR IGNORE INTO ipbits (ip) VALUES (?)",
             params![ip_str],
         )
         .unwrap();
+
+        // a new IP was inserted into ipbits
+        if rows_affected > 0 {
+            new_ips.push(ip_str.clone())
+        }
 
         // Get the id of the ip address in the ips table
         let ip_id: i64 = conn
@@ -164,7 +170,8 @@ pub fn update_known_ips(conn: &Connection, notary_id: u8, ips: Vec<[u8; 4]>) {
                 params![notary_id, ip_id, current_timestamp, current_timestamp],
             ).unwrap();
         }
-    }
+    };
+    new_ips
 }
 
 pub fn update_lastseen(conn: &Connection, notary_id: u8) {

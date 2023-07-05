@@ -72,6 +72,31 @@ fn printinfo(dpow_msg: &DpowNanoMsgHdr) {
     print_hex(&dpow_msg.desthash);
 }
 
+fn connect_to_ip(socket: &mut Socket, ip: &String, port: &String ) {
+    let dial = format!("tcp://{}:{}", ip, port);
+    let _out_endpoint = match socket.connect(&dial) {
+        Ok(_) => {
+            println!("connect to {}", dial);
+        }
+        Err(_) => println!("failed connect to {}", dial),
+    };
+}
+
+fn connect_to_known_ips(conn: &Connection, socket: &mut Socket, server_port: &String) {
+    let mut stmt = conn.prepare("SELECT ip FROM ipbits").unwrap();
+
+    let rows = stmt.query_map([], |row| {
+        let ip: String = row.get(0)?;
+        Ok(ip)
+    }).unwrap();
+
+    for ip_result in rows {
+        if let Ok(ip) = ip_result {
+            connect_to_ip(socket, &ip, server_port);
+        }
+    }
+}
+
 // usage ./iguana_rs_listener <external IP to bind to> <port to bind to> <initial peer to connect to> <db filename>
 fn main() {
     let args: Vec<String> = env::args().collect();
@@ -98,12 +123,14 @@ fn main() {
     let mut buffer = vec![];
     //let mut connect_once = true;
     let connect_once = Arc::new(Mutex::new(true));
-    let connect_once_for_thread = connect_once.clone();
+    let _connect_once_for_thread = connect_once.clone();
 
     //let mut out_sockets : Vec<Socket> = Vec::new();
     thread::spawn(move || {
         let conn = Connection::open(db_file).unwrap();
         init_db(&conn);
+        connect_to_known_ips(&conn, &mut in_socket, &server_port);
+
         loop {
             match in_socket.read_to_end(&mut buffer) {
                 Ok(_mysize) => {
@@ -112,7 +139,6 @@ fn main() {
                             break;
                         };
 
-                        println!("full buffer {:?}", buffer);
                         let header: IguanaPacketHeader =
                             binconf.deserialize(&buffer[..104]).unwrap();
                         buffer = buffer[104..].to_vec();
@@ -128,31 +154,11 @@ fn main() {
 
                         update_lastseen(&conn, dpow_msg.senderind);
                         update_ip_logs(&conn, dpow_msg.senderind, dpow_msg.myipbits);
-                        update_known_ips(&conn, dpow_msg.senderind, dpow_msg.ipbits.to_vec());
-
-                        if *connect_once_for_thread.lock().unwrap() {
-                            println!("TRIGGER RPC");
-                            for ip in dpow_msg.ipbits.iter() {
-                                let ip_str = Ipv4Addr::from(u32::from_be_bytes(*ip)).to_string();
-                                if ip != &[0; 4]
-                                    && &server_ip != &ip_str
-                                    && &bootstrap_peer != &ip_str
-                                {
-                                    let dial = format!("tcp://{}:{}", ip_str, server_port);
-                                    println!("dial {}", dial);
-                                    // TODO we want thread per connection to be able to send/receive selectively
-                                    //let mut out_socket = Socket::new(Protocol::Bus).expect("cannot create socket");
-                                    let _out_endpoint = match in_socket.connect(&dial) {
-                                        Ok(_) => {
-                                            println!("connect to {}", dial);
-                                            //out_sockets.push(out_socket);
-                                        }
-                                        Err(_) => println!("failed connect to {}", dial),
-                                    };
-                                }
-                            }
-                            *connect_once_for_thread.lock().unwrap() = false;
+                        let new_ips = update_known_ips(&conn, dpow_msg.senderind, dpow_msg.ipbits.to_vec());
+                        for ip in new_ips.iter() {
+                            connect_to_ip(&mut in_socket, ip, &server_port);
                         }
+                        printinfo(&dpow_msg);
 
                         let _extra = &buffer[..dpow_msg.datalen as usize];
 
