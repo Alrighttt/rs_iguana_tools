@@ -129,7 +129,7 @@ pub struct DpowNanoMsgHdr {
     pub myipbits: [u8; 4],
     pub numipbits: u32,
     #[serde(with = "BigArray")]
-    pub ipbits: [[u8; 4]; 512], // this should be set to 512 for mainnet or 3p networks
+    pub ipbits: [[u8; 4]; 512],
     pub symbol: [u8; 16],
     pub senderind: u8,
     pub senderind2: u8,
